@@ -5,15 +5,11 @@
 	$s = new Skunk();
 
 	$s->get(
-		'/hi(/?(.*)?)',
+		'/hi(/<name>)',
 		function ( &$s, $name = null ) {
-			if( is_null( $name ) ) {
-				$s->body = 'Hello!';
-			}
-			else {
-				$s->body = "Hello " . substr( $name, 1 ) . "!";
-			}
+			$s->body = 'Hello' . ( ( is_null( $name ) ) ? '' : " $name" ) . '!';
 		}
 	);
 
 	$s->run();
+

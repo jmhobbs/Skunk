@@ -10,11 +10,11 @@
 		protected $post = array();
 
 		public function get ( $route, $fn ) {
-			$this->get[$route] = $fn;
+			$this->get[$route] = array( 'compiled' => Skunk::compile_route( $route ), 'callback' => $fn );
 		}
 
 		public function post ( $route, $fn ) {
-			$this->post[$route] = $fn;
+			$this->post[$route] = array( 'compiled' => Skunk::compile_route( $route ), 'callback' => $fn );
 		}
 
 		public function run () {
@@ -24,10 +24,10 @@
 			}
 			else {
 				if( isset( $_POST ) ) {
-					$this->match_route( $this->get, $_REQUEST['uri'] );
+					$this->match_route( $this->get, rtrim( $_REQUEST['uri'], '/' ) );
 				}
 				else {
-					$this->match_route( $this->post, $_REQUEST['uri'] );
+					$this->match_route( $this->post, rtrim( $_REQUEST['uri'], '/' ) );
 				}
 			}
 
@@ -55,33 +55,32 @@
 			return $template;
 		}
 
-		// TODO: This route system sucks.
 		protected function match_route ( $routes, $uri ) {
 
-			foreach( $routes as $route => $fn ) {
-				if( false != preg_match( "#$route#", $uri, $matches ) ) {
+			foreach( $routes as $name => $route ) {
+				if( false != preg_match( $route['compiled'], $uri, $matches ) ) {
 					// We can't use call_user_func_array because it doesn't respect call by ref.
 					switch( count( $matches ) ) {
 						case 1:
-							call_user_func( $fn, &$this );
+							call_user_func( $route['callback'], &$this );
 							break;
 						case 2:
-							call_user_func( $fn, &$this, $matches[1] );
+							call_user_func( $route['callback'], &$this, $matches[1] );
 							break;
 						case 3:
-							call_user_func( $fn, &$this, $matches[1], $matches[2] );
+							call_user_func( $route['callback'], &$this, $matches[1], $matches[2] );
 							break;
 						case 4:
-							call_user_func( $fn, &$this, $matches[1], $matches[2], $matches[3] );
+							call_user_func( $route['callback'], &$this, $matches[1], $matches[2], $matches[3] );
 							break;
 						case 5:
-							call_user_func( $fn, &$this, $matches[1], $matches[2], $matches[3], $matches[4] );
+							call_user_func( $route['callback'], &$this, $matches[1], $matches[2], $matches[3], $matches[4] );
 							break;
 						case 6:
-							call_user_func( $fn, &$this, $matches[1], $matches[2], $matches[3], $matches[4], $matches[5] );
+							call_user_func( $route['callback'], &$this, $matches[1], $matches[2], $matches[3], $matches[4], $matches[5] );
 							break;
 						case 7:
-							call_user_func( $fn, &$this, $matches[1], $matches[2], $matches[3], $matches[4], $matches[5], $matches[6] );
+							call_user_func( $route['callback'], &$this, $matches[1], $matches[2], $matches[3], $matches[4], $matches[5], $matches[6] );
 							break;
 						default:
 							// We can only do so much...
@@ -105,6 +104,56 @@
 			die( $this->body );
 		}
 
+		////////////////////////////////////////////////////////////////////////////
+		// START ROUTING JACKED FROM KOHANA 3.1.2
+		////////////////////////////////////////////////////////////////////////////
+
+		// Defines the pattern of a <segment>
+		const REGEX_KEY     = '<([a-zA-Z0-9_]++)>';
+
+		// What can be part of a <segment> value
+		const REGEX_SEGMENT = '[^/.,;?\n]++';
+
+		// What must be escaped in the route regex
+		const REGEX_ESCAPE  = '[.\\+*?[^\\]${}=!|]';
+
+		public static function compile_route ( $uri, array $regex = NULL ) {
+
+			if ( ! is_string( $uri ) ) return;
+
+			// The URI should be considered literal except for keys and optional parts
+			// Escape everything preg_quote would escape except for : ( ) < >
+			$expression = preg_replace('#'.Skunk::REGEX_ESCAPE.'#', '\\\\$0', $uri);
+
+			if (strpos($expression, '(') !== FALSE)
+			{
+				// Make optional parts of the URI non-capturing and optional
+				$expression = str_replace(array('(', ')'), array('(?:', ')?'), $expression);
+			}
+
+			// Insert default regex for keys
+			$expression = str_replace(array('<', '>'), array('(?P<', '>'.Skunk::REGEX_SEGMENT.')'), $expression);
+
+			if ($regex)
+			{
+				$search = $replace = array();
+				foreach ($regex as $key => $value)
+				{
+					$search[]  = "<$key>".Skunk::REGEX_SEGMENT;
+					$replace[] = "<$key>$value";
+				}
+
+				// Replace the default regex with the user-specified regex
+				$expression = str_replace($search, $replace, $expression);
+			}
+
+			return '#^'.$expression.'$#uD';
+		}
+
+		////////////////////////////////////////////////////////////////////////////
+		// END ROUTING JACKED FROM KOHANA 3.1.2
+		////////////////////////////////////////////////////////////////////////////
+
 		protected $_html = <<<EOF
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
                       "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
@@ -123,3 +172,4 @@
 EOF;
 
 	}
+
