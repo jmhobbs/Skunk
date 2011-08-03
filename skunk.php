@@ -9,6 +9,8 @@
 		protected $get = array();
 		protected $post = array();
 
+		protected $hooks = array();
+
 		public function get ( $route, $fn ) {
 			$this->get[$route] = array( 'compiled' => Skunk::compile_route( $route ), 'callback' => $fn );
 		}
@@ -34,6 +36,29 @@
 			$this->send_head();
 			$this->send_body();
 			exit();
+		}
+
+		/**
+			Register a hook. Like, um, uh...
+		**/
+		public function hook ( $hook, $fn ) {
+			if( isset( $this->hooks[$hook] ) ) {
+				$this->hooks[$hook][] = $fn;
+			}
+			else {
+				$this->hooks[$hook] = array( $fn );
+			}
+		}
+
+		protected function do_hook ( $hook ) {
+			$return = true;
+			if( isset( $this->hooks[$hook] ) ) {
+				foreach( $this->hooks[$hook] as $hook ) {
+					$return = call_user_func( $hook, &$this );
+					if( ! $return ) { break; }
+				}
+			}
+			return $return;
 		}
 
 		// TODO: More HTTP codes
@@ -90,17 +115,19 @@
 
 		}
 
-		protected function header ( $key, $value ) {
+		public function header ( $key, $value ) {
 			$this->headers[$key] = $value;
 		}
 
 		protected function send_head () {
+			$this->do_hook( 'send_head' ); 
 			foreach( $this->headers as $key => $value ) {
 				header( "$key: $value" );
 			}
 		}
 
 		protected function send_body () {
+			$this->do_hook( 'send_body' ); 
 			die( $this->body );
 		}
 
