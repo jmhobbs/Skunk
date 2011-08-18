@@ -1,4 +1,17 @@
 <?php
+	/*
+
+		Skunk PHP Framework v0.1.0
+		https://github.com/jmhobbs/Skunk
+		Copyright 2011, John Hobbs
+		Licensed under BSD.
+
+		Includes code from Kohana 3.1.2
+		http://kohanaframework.org/
+		Copyright 2007-2011 Kohana Team
+		Licensed under BSD.
+
+	*/
 
 	class Skunk {
 
@@ -63,10 +76,23 @@
 
 		// TODO: More HTTP codes
 
+		public function HTTP_301 ( $location, $error = 'Moved Permanently' ) {
+			$this->header( "HTTP/1.0",  "301 $error" );
+			$this->header( "Status", "301 $error" );
+			$this->header( "Location", $location );
+			$this->body = $this->template( $this->_html, array( 'title' => "301 - $error", 'body' => $error ) );
+		}
+
 		public function HTTP_404 ( $error = 'Not Found' ) {
 			$this->header( "HTTP/1.0",  "404 $error" );
 			$this->header( "Status", "404 $error" );
 			$this->body = $this->template( $this->_html, array( 'title' => "404 - $error", 'body' => $error ) );
+		}
+
+		public function HTTP_500 ( $error = 'Internal Error' ) {
+			$this->header( "HTTP/1.0",  "500 $error" );
+			$this->header( "Status", "500 $error" );
+			$this->body = $this->template( $this->_html, array( 'title' => "500 - $error", 'body' => $error ) );
 		}
 
 		/**
@@ -84,6 +110,9 @@
 
 			foreach( $routes as $name => $route ) {
 				if( false != preg_match( $route['compiled'], $uri, $matches ) ) {
+
+					$this->do_hook( 'before' ); 
+
 					// We can't use call_user_func_array because it doesn't respect call by ref.
 					switch( count( $matches ) ) {
 						case 1:
@@ -109,9 +138,17 @@
 							break;
 						default:
 							// We can only do so much...
+							$this->HTTP_500();
 					}
+
+					$this->do_hook( 'after' );
+
+					return;
 				}
 			}
+
+			// If we get to here, nothing ever matched.
+			$this->HTTP_404();
 
 		}
 
